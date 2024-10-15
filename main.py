@@ -1,102 +1,69 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-# matplotlib inline
 
-import chart_studio.plotly as py
-import plotly.graph_objs as go
-from plotly.offline import plot
-
-#for offline plotting
-from plotly.offline import download_plotlyjs, init_notebook_mode, plot, iplot
-
-# Regression model libraries
+# For regression and preprocessing
 from sklearn.model_selection import train_test_split
-
-# For preprocessing
-from sklearn.preprocessing import MinMaxScaler
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error as mse, r2_score
 
-# For model evaluation
-from sklearn.metrics import mean_squared_error as mse
-from sklearn.metrics import r2_score
-
-init_notebook_mode(connected=True)
-
+# Load dataset
 tesla = pd.read_csv('tesla.csv')
-tesla.head()
-
-# tesla.info()
-
 tesla['Date'] = pd.to_datetime(tesla['Date'], dayfirst=True)
 
+# Display date range and days in dataset
 print(f'Dataframe contains stock prices between {tesla.Date.min()} and {tesla.Date.max()}')
 print(f'Total days = {(tesla.Date.max() - tesla.Date.min()).days} days')
 
-tesla.describe()
-tesla[['Open', 'High', 'Low', 'Close', 'Adj Close']].plot(kind='box')
+# Plot a boxplot of the stock prices
+tesla[['Open', 'High', 'Low', 'Close', 'Adj Close']].plot(kind='box', figsize=(10, 6))
+plt.title('Tesla Stock Prices Boxplot')
+plt.show()
 
-# Setting the layout for our plot
-layout = go.Layout(
-    title='Stock Prices of Tesla',
-    xaxis=dict(
-        title='Date',
-        titlefont=dict(
-            family='Courier New, monospace',
-            size=18,
-            color='#7f7f7f'
-        )
-    ),
-    yaxis=dict(
-        title='Price',
-        titlefont=dict(
-            family='Courier New, monospace',
-            size=18,
-            color='#7f7f7f'
-        )
-    )
-)
+# Plot closing price over time
+plt.figure(figsize=(12, 6))
+plt.plot(tesla['Date'], tesla['Close'], label='Closing Price')
+plt.title('Tesla Stock Prices Over Time')
+plt.xlabel('Date')
+plt.ylabel('Price')
+plt.legend()
+plt.grid(True)
+plt.show()
 
-tesla_data = [{'x':tesla['Date'], 'y':tesla['Close']}]
-teslaPlot = go.Figure(data=tesla_data, layout=layout)
-
-plot(teslaPlot) 
-
+# Prepare data for the linear regression model
+X = np.array(tesla.index).reshape(-1, 1)
+Y = tesla['Close']
 
 # Split the data into train and test sets
-X = np.array(tesla.index).reshape(-1,1)
-Y = tesla['Close']
 X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.3, random_state=101)
-#  Feature scaling
+
+# Feature scaling
 scaler = StandardScaler().fit(X_train)
-# Creating a linear model
+
+# Create and train the linear regression model
 lm = LinearRegression()
 lm.fit(X_train, Y_train)
 
-#Plot actual and predicted values for train dataset
-trace0 = go.Scatter(
-    x = X_train.T[0],
-    y = Y_train,
-    mode = 'markers',
-    name = 'Actual'
-)
-trace1 = go.Scatter(
-    x = X_train.T[0],
-    y = lm.predict(X_train).T,
-    mode = 'lines',
-    name = 'Predicted'
-)
-tesla_data = [trace0,trace1]
-layout.xaxis.title.text = 'Day'
-plot2 = go.Figure(data=tesla_data, layout=layout)
+# Plot actual vs predicted values for the training set
+plt.figure(figsize=(12, 6))
+plt.scatter(X_train, Y_train, color='blue', label='Actual', alpha=0.6)
+plt.plot(X_train, lm.predict(X_train), color='red', label='Predicted')
+plt.title('Actual vs Predicted - Training Data')
+plt.xlabel('Day')
+plt.ylabel('Price')
+plt.legend()
+plt.show()
 
-# iplot(plot2)
+# Calculate and print evaluation metrics
+train_r2 = r2_score(Y_train, lm.predict(X_train))
+test_r2 = r2_score(Y_test, lm.predict(X_test))
+train_mse = mse(Y_train, lm.predict(X_train))
+test_mse = mse(Y_test, lm.predict(X_test))
 
-# Calculate scores for model evaluation
 scores = f'''
 {'Metric'.ljust(10)}{'Train'.center(20)}{'Test'.center(20)}
-{'r2_score'.ljust(10)}{r2_score(Y_train, lm.predict(X_train))}\t{r2_score(Y_test, lm.predict(X_test))}
-{'MSE'.ljust(10)}{mse(Y_train, lm.predict(X_train))}\t{mse(Y_test, lm.predict(X_test))}
+{'r2_score'.ljust(10)}{train_r2:<20}{test_r2}
+{'MSE'.ljust(10)}{train_mse:<20}{test_mse}
 '''
-# print(scores)
+print(scores)
