@@ -1,37 +1,61 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-
-# For regression and preprocessing
+import requests
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error as mse, r2_score
 
+API_KEY = 'zIikXy77dcwqLwEl5enlwQBOQharcSzq'
+
+def fetch_stock_data(stock_symbol, start_date, end_date):
+    """Fetch stock data from Polygon.io."""
+    url = f"https://api.polygon.io/v2/aggs/ticker/{stock_symbol}/range/1/day/{start_date}/{end_date}"
+    params = {
+        "adjusted": "true", 
+        "sort": "asc", 
+        "limit": 50000, 
+        "apiKey": API_KEY
+    }
+    response = requests.get(url, params=params)
+
+    if response.status_code == 200:
+        data = response.json()["results"]
+        df = pd.DataFrame(data)
+        df["Date"] = pd.to_datetime(df["t"], unit='ms')  # Convert timestamp to date
+        df.rename(columns={"o": "Open", "h": "High", "l": "Low", 
+                           "c": "Close", "v": "Volume"}, inplace=True)
+        return df
+    else:
+        print(f"Failed to fetch data for {stock_symbol}: {response.json()}")
+        return None
+
 stock_dict = {
-    "Tesla" : "tesla.csv",
-    "Google" : "Google_test_data.csv"
+    "TSLA": "Tesla",
+    "GOOGL": "Google"
 }
 
-# Load dataset
-for stock, file_name in stock_dict.items():
-
-    df = pd.read_csv(file_name)
-    df['Date'] = pd.to_datetime(df['Date'], dayfirst=True)
+for stock_symbol, stock_name in stock_dict.items():
+    # Fetch data from Polygon.io
+    df = fetch_stock_data(stock_symbol, start_date="2022-01-01", end_date="2024-10-14")
+    
+    if df is None:
+        continue  # Skip if data fetch failed
 
     # Display date range and days in dataset
     print(f'Dataframe contains stock prices between {df.Date.min()} and {df.Date.max()}')
     print(f'Total days = {(df.Date.max() - df.Date.min()).days} days')
 
     # Plot a boxplot of the stock prices
-    df[['Open', 'High', 'Low', 'Close', 'Adj Close']].plot(kind='box', figsize=(10, 6))
-    plt.title(f'{stock} Stock Prices Boxplot')
+    df[['Open', 'High', 'Low', 'Close']].plot(kind='box', figsize=(10, 6))
+    plt.title(f'{stock_name} Stock Prices Boxplot')
     plt.show()
 
     # Plot closing price over time
     plt.figure(figsize=(12, 6))
     plt.plot(df['Date'], df['Close'], label='Closing Price')
-    plt.title(f'{stock} Stock Prices Over Time')
+    plt.title(f'{stock_name} Stock Prices Over Time')
     plt.xlabel('Date')
     plt.ylabel('Price')
     plt.legend()
